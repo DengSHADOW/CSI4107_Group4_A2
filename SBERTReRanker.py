@@ -65,7 +65,6 @@ class SBERTReRanker:
             print(f"Processed {queries_processed} / {total_queries} queries")
 
         # Save to output file
-        print("Re-ranked:", reranked_results[:5])
         with open(self.output_file, "w") as output_file:
             output_file.writelines(reranked_results)
 
