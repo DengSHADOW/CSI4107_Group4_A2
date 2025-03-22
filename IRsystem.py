@@ -43,6 +43,8 @@ class IRsystem:
 
         # Empty cleaned text dict (for retrieval) {Id: texts}
         self.docs = {}  
+        # Same for queries
+        self.queries = {}
 
         # Initialize vectorizer for calculating TF-IDF
         self.vectorizer = TfidfVectorizer(stop_words=None)
@@ -152,12 +154,12 @@ class IRsystem:
             print("Searching and running, please wait......")
             for line in f:
                 query = json.loads(line)
-                
                 query_id = int(query['_id'])  # Convert to integer
                 if query_id % 2 == 0:  # Skip even-numbered queries
                     continue
-                
                 query_text = query['text']  # Extract query content
+                self.queries[query_id] = query_text
+
                 ranked_docs = self.RetrievalAndRanking(query_text)  
 
                 for rank, (doc_id, score) in enumerate(ranked_docs[:top_k], start=1):
