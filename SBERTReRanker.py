@@ -33,23 +33,44 @@ class SBERTReRanker:
     def re_rank(self):
         reranked_results = []
 
-        # Compute query embeddings using our SBERT model
-        query_embeddings = {
-            qid: self.model.encode(self.ir_system.queries[qid], convert_to_tensor=True)
-            for qid in self.ir_system.queries
-        }
-
-        # For each query embedding, compute cosine similarity with each relevant doc embedding
-        # Processing takes a while, show query processing progress
-        # For quick testing, can do: for query_id in dict(islice(query_embeddings.items(), 5)):
+        # Compute query and doc embeddings using our SBERT model
+        # Computing them all here helps avoid possibly redudant embedding calculations
+        # This takes a while but saves time during similarity comparison
+        print("\nGenerating Query Embeddings")
+        query_embeddings = {}
         queries_processed = 0
         total_queries = len(self.ir_system.queries)
+
+        for query_id, query_text in self.ir_system.queries.items():
+            query_embeddings[query_id] = self.model.encode(query_text, convert_to_tensor=True)
+            queries_processed += 1
+
+            if queries_processed % 100 == 0 or queries_processed == total_queries:
+                print(f"{queries_processed}/{total_queries} query embeddings")
+
+
+        print("\nGenerating Document Embeddings")
+        docs_processed = 0
+        total_docs = len(self.ir_system.docs)
+        doc_embeddings = {}
+        for doc_id, doc_text in self.ir_system.docs.items():
+            doc_embeddings[doc_id] = self.model.encode(doc_text, convert_to_tensor=True)
+            docs_processed += 1
+
+            if docs_processed % 100 == 0 or docs_processed == total_docs:
+                print(f"{docs_processed}/{total_docs} document embeddings")
+
+
+        # For each query embedding, compute cosine similarity with each relevant doc embedding
+        # For quick testing, can do: for query_id in dict(islice(query_embeddings.items(), 5)):
+        print("\nChecking Query-Document Cosine Similarities")
+        queries_processed = 0
         for query_id in query_embeddings:
             query_embedding = query_embeddings[query_id]
             doc_scores = []
 
             for doc_id, _ in self.initial_results[str(query_id)]:
-                doc_embedding = self.model.encode(self.ir_system.docs[doc_id], convert_to_tensor=True)
+                doc_embedding = doc_embeddings[doc_id]
                 similarity = util.pytorch_cos_sim(query_embedding, doc_embedding).item()
                 doc_scores.append((doc_id, similarity))
 
@@ -61,8 +82,8 @@ class SBERTReRanker:
                 reranked_results.append(f"{query_id} Q0 {doc_id} {rank} {score:.4f} SBERT\n")
             
             queries_processed += 1
-            # if queries_processed % 10 == 0:
-            print(f"Processed {queries_processed} / {total_queries} queries")
+            if queries_processed % 100 == 0 or queries_processed == total_queries:
+                print(f"{queries_processed} / {total_queries} queries")
 
         # Save to output file
         with open(self.output_file, "w") as output_file:
