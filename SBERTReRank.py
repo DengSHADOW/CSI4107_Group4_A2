@@ -26,7 +26,7 @@ class SBERTReRanker:
         with open(self.results_file, "r") as file:
             for line in file:
                 parts = line.strip().split()
-                query_id, _, doc_id, _, score, tag = parts
+                query_id, _, doc_id, _, score, _ = parts
                 self.initial_results[query_id].add((doc_id, float(score)))
 
     # Re-rank documents using SBERT and save to output file
@@ -37,34 +37,35 @@ class SBERTReRanker:
         # Computing them all here helps avoid possibly redudant embedding calculations
         # This takes a while but saves time during similarity comparison
         print("\nGenerating Query Embeddings")
+        query_ids = list(self.ir_system.queries.keys())
+        query_texts = [f"{self.ir_system.queries[qid]}" for qid in query_ids]
         query_embeddings = {}
-        queries_processed = 0
-        total_queries = len(self.ir_system.queries)
 
-        for query_id, query_text in self.ir_system.queries.items():
-            query_embeddings[query_id] = self.model.encode(query_text, convert_to_tensor=True)
-            queries_processed += 1
-
-            if queries_processed % 100 == 0 or queries_processed == total_queries:
-                print(f"{queries_processed}/{total_queries} query embeddings")
+        query_vectors = self.model.encode(
+            query_texts,
+            convert_to_tensor=True,
+            show_progress_bar=True
+        )
+        query_embeddings = dict(zip(query_ids, query_vectors))
 
 
         print("\nGenerating Document Embeddings")
-        docs_processed = 0
-        total_docs = len(self.ir_system.docs)
+        doc_ids = list(self.ir_system.docs.keys())
+        doc_texts = [f"{self.ir_system.docs[doc_id]}" for doc_id in doc_ids]
         doc_embeddings = {}
-        for doc_id, doc_text in self.ir_system.docs.items():
-            doc_embeddings[doc_id] = self.model.encode(doc_text, convert_to_tensor=True)
-            docs_processed += 1
 
-            if docs_processed % 100 == 0 or docs_processed == total_docs:
-                print(f"{docs_processed}/{total_docs} document embeddings")
-
+        doc_vectors = self.model.encode(
+            doc_texts,
+            convert_to_tensor=True,
+            show_progress_bar=True
+        )
+        doc_embeddings = dict(zip(doc_ids, doc_vectors))
 
         # For each query embedding, compute cosine similarity with each relevant doc embedding
         # For quick testing, can do: for query_id in dict(islice(query_embeddings.items(), 5)):
         print("\nChecking Query-Document Cosine Similarities")
         queries_processed = 0
+        total_queries = len(self.ir_system.queries)
         for query_id in query_embeddings:
             query_embedding = query_embeddings[query_id]
             doc_scores = []

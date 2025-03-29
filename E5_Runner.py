@@ -1,7 +1,7 @@
 from E5ReRank import E5ReRanker
 import pickle
 
-# Load the save IR (can be modified in store_IR.py)
+# Load the saved IR (can be modified in store_IR.py)
 with open("ir_system.pkl", "rb") as f:
     IR = pickle.load(f)
 
